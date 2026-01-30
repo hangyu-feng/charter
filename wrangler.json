@@ -1,8 +1,7 @@
 {
   "name": "charter",
   "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS"
+    "directory": "./dist"
   },
   "compatibility_date": "2024-11-12",
   "observability": {
