@@ -20,38 +20,47 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ symbol, onClose,
     
     const [source, setSource] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // Fetch data when symbol changes
-    useEffect(() => {
+    // Load data function
+    const loadData = async () => {
         if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+        
+        setLoading(true);
+        const data = await fetchMarketData(symbol);
+        setLoading(false);
 
-        const loadData = async () => {
-            setLoading(true);
-            const data = await fetchMarketData(symbol);
-            setLoading(false);
+        if (data) {
+            setError(null);
+            const chartCandles = data.candles.map(c => ({ ...c, time: c.time as Time }));
+            const chartVolume = data.volume.map(v => ({ ...v, time: v.time as Time }));
 
-            if (data) {
-                const chartCandles = data.candles.map(c => ({ ...c, time: c.time as Time }));
-                const chartVolume = data.volume.map(v => ({ ...v, time: v.time as Time }));
-
-                candlestickSeriesRef.current?.setData(chartCandles);
-                volumeSeriesRef.current?.setData(chartVolume);
-                
-                if (chartRef.current) {
-                    chartRef.current.timeScale().fitContent();
-                }
-                setSource(data.source);
-            } else {
-                // Handle error or no data
-                console.warn(`No data found for ${symbol}`);
-                candlestickSeriesRef.current?.setData([]);
-                volumeSeriesRef.current?.setData([]);
-                setSource('No Data');
+            candlestickSeriesRef.current?.setData(chartCandles);
+            volumeSeriesRef.current?.setData(chartVolume);
+            
+            if (chartRef.current) {
+                chartRef.current.timeScale().fitContent();
             }
-        };
+            setSource(data.source);
+        } else {
+            console.warn(`No data found for ${symbol}`);
+            setError(`Symbol "${symbol}" not found or API error`);
+            candlestickSeriesRef.current?.setData([]);
+            volumeSeriesRef.current?.setData([]);
+            setSource(null);
+        }
+    };
 
+    // Fetch data when symbol changes or initialized
+    useEffect(() => {
+        if (!isInitialized) return;
         loadData();
-    }, [symbol]);
+
+        // Polling for "live" data
+        const interval = setInterval(loadData, 15000); // Update every 15 seconds
+        return () => clearInterval(interval);
+    }, [symbol, isInitialized]);
 
     // Initialize Chart
     useEffect(() => {
@@ -113,9 +122,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ symbol, onClose,
             chartRef.current = chart;
             candlestickSeriesRef.current = candlestickSeries;
             volumeSeriesRef.current = volumeSeries;
-            
-            // Trigger initial fetch
-            // logic moved to symbol effect, which runs on mount due to symbol prop
+            setIsInitialized(true);
         };
 
         const resizeObserver = new ResizeObserver((entries) => {
@@ -202,6 +209,24 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ symbol, onClose,
                 )}
             </div>
             <div ref={chartContainerRef} style={{ flex: 1, width: '100%' }} />
+            {error && (
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'rgba(20, 20, 20, 0.8)',
+                    padding: '12px 20px',
+                    borderRadius: '8px',
+                    color: '#ef5350',
+                    border: '1px solid #ef5350',
+                    zIndex: 20,
+                    pointerEvents: 'none',
+                    textAlign: 'center'
+                }}>
+                    {error}
+                </div>
+            )}
         </div>
     );
 };

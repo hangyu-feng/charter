@@ -12,10 +12,15 @@ interface Env {
 // Helper to convert MS timestamp to Seconds
 const toSeconds = (ms: number) => Math.floor(ms / 1000);
 
-async function fetchBinanceCandles(symbol: string): Promise<{ candles: CandleData[], volume: HistogramData[] } | null> {
+async function fetchBinanceCandles(symbol: string, isUS: boolean = false): Promise<{ candles: CandleData[], volume: HistogramData[] } | null> {
     try {
-        const normalizedSymbol = symbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${normalizedSymbol}&interval=1m&limit=500`);
+        let normalizedSymbol = symbol.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        // Common mappings
+        if (normalizedSymbol === 'BTCUSD') normalizedSymbol = 'BTCUSDT';
+        if (normalizedSymbol === 'ETHUSD') normalizedSymbol = 'ETHUSDT';
+        
+        const domain = isUS ? 'api.binance.us' : 'api.binance.com';
+        const response = await fetch(`https://${domain}/api/v3/klines?symbol=${normalizedSymbol}&interval=1m&limit=500`);
         if (!response.ok) return null;
         const data = await response.json();
         
@@ -35,13 +40,13 @@ async function fetchBinanceCandles(symbol: string): Promise<{ candles: CandleDat
         });
         return { candles, volume };
     } catch (e) {
-        console.error("Binance fetch failed:", e);
+        console.error(`Binance ${isUS ? 'US' : 'COM'} fetch failed:`, e);
         return null;
     }
 }
 
 async function fetchAlphaVantageCandles(symbol: string, apiKey?: string): Promise<{ candles: CandleData[], volume: HistogramData[] } | null> {
-    if (!apiKey) return null;
+    if (!apiKey || apiKey === 'your_alphavantage_key_here') return null;
     try {
         const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=${symbol}&interval=1min&apikey=${apiKey}`);
         const data = await response.json();
@@ -72,7 +77,7 @@ async function fetchAlphaVantageCandles(symbol: string, apiKey?: string): Promis
 }
 
 async function fetchFinnhubCandles(symbol: string, apiKey?: string): Promise<{ candles: CandleData[], volume: HistogramData[] } | null> {
-    if (!apiKey) return null;
+    if (!apiKey || apiKey === 'your_finnhub_key_here') return null;
     try {
         const to = Math.floor(Date.now() / 1000);
         const from = to - (60 * 60 * 24); 
@@ -119,15 +124,23 @@ export default {
                 }));
             };
 
-            // 1. Binance
-            const binanceData = await fetchBinanceCandles(symbol);
+            // 1. Binance.com
+            let binanceData = await fetchBinanceCandles(symbol, false);
             if (binanceData && binanceData.candles.length > 0) {
-                logStat('Binance', 'success');
+                logStat('Binance.com', 'success');
                 return new Response(JSON.stringify({ ...binanceData, source: 'Binance' }), { headers: { 'Content-Type': 'application/json' }});
             }
-            logStat('Binance', 'fallback');
+            logStat('Binance.com', 'fallback');
 
-            // 2. Alpha Vantage
+            // 2. Binance.us
+            binanceData = await fetchBinanceCandles(symbol, true);
+            if (binanceData && binanceData.candles.length > 0) {
+                logStat('Binance.us', 'success');
+                return new Response(JSON.stringify({ ...binanceData, source: 'Binance US' }), { headers: { 'Content-Type': 'application/json' }});
+            }
+            logStat('Binance.us', 'fallback');
+
+            // 3. Alpha Vantage
             const avData = await fetchAlphaVantageCandles(symbol, env.VITE_ALPHAVANTAGE_KEY);
             if (avData && avData.candles.length > 0) {
                 logStat('AlphaVantage', 'success');
@@ -135,7 +148,7 @@ export default {
             }
             logStat('AlphaVantage', 'fallback');
 
-            // 3. Finnhub
+            // 4. Finnhub
             const finnData = await fetchFinnhubCandles(symbol, env.VITE_FINNHUB_KEY);
             if (finnData && finnData.candles.length > 0) {
                 logStat('Finnhub', 'success');
