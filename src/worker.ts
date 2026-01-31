@@ -109,24 +109,40 @@ export default {
             const symbol = url.searchParams.get('symbol');
             if (!symbol) return new Response('Missing symbol', { status: 400 });
 
+            const logStat = (provider: string, status: 'success' | 'failure' | 'fallback') => {
+                console.log(JSON.stringify({
+                    type: "usage_stat",
+                    timestamp: new Date().toISOString(),
+                    symbol,
+                    provider,
+                    status
+                }));
+            };
+
             // 1. Binance
             const binanceData = await fetchBinanceCandles(symbol);
             if (binanceData && binanceData.candles.length > 0) {
+                logStat('Binance', 'success');
                 return new Response(JSON.stringify({ ...binanceData, source: 'Binance' }), { headers: { 'Content-Type': 'application/json' }});
             }
+            logStat('Binance', 'fallback');
 
             // 2. Alpha Vantage
             const avData = await fetchAlphaVantageCandles(symbol, env.VITE_ALPHAVANTAGE_KEY);
             if (avData && avData.candles.length > 0) {
+                logStat('AlphaVantage', 'success');
                 return new Response(JSON.stringify({ ...avData, source: 'Alpha Vantage' }), { headers: { 'Content-Type': 'application/json' }});
             }
+            logStat('AlphaVantage', 'fallback');
 
             // 3. Finnhub
             const finnData = await fetchFinnhubCandles(symbol, env.VITE_FINNHUB_KEY);
             if (finnData && finnData.candles.length > 0) {
+                logStat('Finnhub', 'success');
                 return new Response(JSON.stringify({ ...finnData, source: 'Finnhub' }), { headers: { 'Content-Type': 'application/json' }});
             }
 
+            logStat('AllProviders', 'failure');
             return new Response(JSON.stringify(null), { headers: { 'Content-Type': 'application/json' }});
         }
 
