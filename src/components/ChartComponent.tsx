@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CrosshairMode, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import type { ISeriesApi, Time } from 'lightweight-charts';
-import { generateInitialData, generateNextBar, updateBar } from '../utils/dataGenerator';
+import { fetchMarketData } from '../services/marketData';
 import type { CandleData, HistogramData } from '../utils/dataGenerator';
 import { createTimezoneFormatters } from '../utils/timezoneUtils';
 
@@ -19,30 +19,39 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ symbol, onClose,
     const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
     
-    const lastCandleRef = useRef<CandleData | null>(null);
-    const lastVolumeRef = useRef<HistogramData | null>(null);
+    const [source, setSource] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    // Reset data when symbol changes
+    // Fetch data when symbol changes
     useEffect(() => {
         if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
 
-        // Generate new random data for the new symbol
-        // Use a seeded random or just random start price to make it look different
-        const startPrice = Math.random() * 1000 + 50;
-        const { candles, volume } = generateInitialData(500, startPrice);
-        
-        const chartCandles = candles.map(c => ({ ...c, time: c.time as Time }));
-        const chartVolume = volume.map(v => ({ ...v, time: v.time as Time }));
+        const loadData = async () => {
+            setLoading(true);
+            const data = await fetchMarketData(symbol);
+            setLoading(false);
 
-        candlestickSeriesRef.current.setData(chartCandles);
-        volumeSeriesRef.current.setData(chartVolume);
-        
-        lastCandleRef.current = candles[candles.length - 1];
-        lastVolumeRef.current = volume[volume.length - 1];
-        
-        if (chartRef.current) {
-            chartRef.current.timeScale().fitContent();
-        }
+            if (data) {
+                const chartCandles = data.candles.map(c => ({ ...c, time: c.time as Time }));
+                const chartVolume = data.volume.map(v => ({ ...v, time: v.time as Time }));
+
+                candlestickSeriesRef.current?.setData(chartCandles);
+                volumeSeriesRef.current?.setData(chartVolume);
+                
+                if (chartRef.current) {
+                    chartRef.current.timeScale().fitContent();
+                }
+                setSource(data.source);
+            } else {
+                // Handle error or no data
+                console.warn(`No data found for ${symbol}`);
+                candlestickSeriesRef.current?.setData([]);
+                volumeSeriesRef.current?.setData([]);
+                setSource('No Data');
+            }
+        };
+
+        loadData();
     }, [symbol]);
 
     // Initialize Chart
@@ -105,21 +114,9 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ symbol, onClose,
             chartRef.current = chart;
             candlestickSeriesRef.current = candlestickSeries;
             volumeSeriesRef.current = volumeSeries;
-
-            // Generate and set initial data
-            const { candles, volume } = generateInitialData(500, Math.random() * 1000 + 50);
             
-            // Transform data to match strict Time type
-            const chartCandles = candles.map(c => ({ ...c, time: c.time as Time }));
-            const chartVolume = volume.map(v => ({ ...v, time: v.time as Time }));
-
-            candlestickSeries.setData(chartCandles);
-            volumeSeries.setData(chartVolume);
-            
-            lastCandleRef.current = candles[candles.length - 1];
-            lastVolumeRef.current = volume[volume.length - 1];
-
-            chart.timeScale().fitContent();
+            // Trigger initial fetch
+            // logic moved to symbol effect, which runs on mount due to symbol prop
         };
 
         const resizeObserver = new ResizeObserver((entries) => {
@@ -159,39 +156,6 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ symbol, onClose,
         }
     }, [timezone]);
 
-    // Live Data Simulation
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (lastCandleRef.current && lastVolumeRef.current && candlestickSeriesRef.current && volumeSeriesRef.current) {
-                const now = Math.floor(Date.now() / 1000);
-                const nextMinute = lastCandleRef.current.time + 60;
-                
-                let candle: CandleData;
-                let volume: HistogramData;
-
-                if (now >= nextMinute) {
-                    // Start new bar
-                    const next = generateNextBar(lastCandleRef.current);
-                    candle = next.candle;
-                    volume = next.volume;
-                } else {
-                    // Update current bar
-                    const updated = updateBar(lastCandleRef.current, lastVolumeRef.current);
-                    candle = updated.candle;
-                    volume = updated.volume;
-                }
-                
-                candlestickSeriesRef.current.update({ ...candle, time: candle.time as Time });
-                volumeSeriesRef.current.update({ ...volume, time: volume.time as Time });
-                
-                lastCandleRef.current = candle;
-                lastVolumeRef.current = volume;
-            }
-        }, 200); // 200ms updates
-
-        return () => clearInterval(interval);
-    }, []);
-
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%', border: '1px solid #333', display: 'flex', flexDirection: 'column' }}>
             <div style={{ 
@@ -221,6 +185,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ symbol, onClose,
                         outline: 'none'
                     }}
                 />
+                {loading && <span style={{ fontSize: '10px', color: '#aaa' }}>Loading...</span>}
+                {source && !loading && <span style={{ fontSize: '10px', color: '#888' }}>{source}</span>}
                 {onClose && (
                     <button 
                         onClick={onClose}

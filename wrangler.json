@@ -1,5 +1,6 @@
 {
   "name": "charter",
+  "main": "src/worker.ts",
   "assets": {
     "directory": "./dist"
   },
