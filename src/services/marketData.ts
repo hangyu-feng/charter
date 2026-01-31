@@ -1,4 +1,4 @@
-import { CandleData, HistogramData } from '../utils/dataGenerator';
+import type { CandleData, HistogramData } from '../utils/dataGenerator';
 
 export async function fetchMarketData(symbol: string): Promise<{ candles: CandleData[], volume: HistogramData[], source: string } | null> {
     try {

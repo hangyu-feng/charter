@@ -1,10 +1,10 @@
 // src/worker.ts
-import { CandleData, HistogramData } from './utils/dataGenerator';
+import type { CandleData, HistogramData } from './utils/dataGenerator';
 
 // Env interface for TS
 interface Env {
     VITE_ALPHAVANTAGE_KEY?: string;
-    VITE_POLYGON_KEY?: string;
+    VITE_MASSIVE_KEY?: string;
     VITE_FINNHUB_KEY?: string;
     ASSETS: { fetch: (request: Request) => Promise<Response> };
 }

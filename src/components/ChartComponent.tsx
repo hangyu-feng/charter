@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CrosshairMode, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import type { ISeriesApi, Time } from 'lightweight-charts';
 import { fetchMarketData } from '../services/marketData';
-import type { CandleData, HistogramData } from '../utils/dataGenerator';
 import { createTimezoneFormatters } from '../utils/timezoneUtils';
 
 interface ChartComponentProps {

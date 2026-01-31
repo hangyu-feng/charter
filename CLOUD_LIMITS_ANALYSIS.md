@@ -21,7 +21,7 @@ The primary bottleneck for this application is not Cloudflare, but the rate limi
 | **Binance** | High (Weight based) | Primary source. Extremely reliable for Crypto. No key required. |
 | **Finnhub** | 60 requests / minute | Secondary source. Good for Stocks/Forex. |
 | **Alpha Vantage** | 25 requests / day | Tertiary source. Very restrictive; used as a last resort. |
-| **Polygon.io** | 5 requests / minute | Currently not implemented in `worker.ts`, but listed in `.env`. |
+| **Massive** | 5 requests / minute | Currently not implemented in `worker.ts`, but listed in `.env`. |
 
 ## 3. Operational Logic & Cost Efficiency
 
