@@ -61,8 +61,9 @@ For local testing, create a `.dev.vars` file in the project root:
 
 2. Add your keys:
    ```env
-   VITE_ALPHAVANTAGE_KEY=your_actual_key
-   VITE_FINNHUB_KEY=your_actual_key
+   VITE_ALPHAVANTAGE_KEY=your_alphavantage_key_here
+   VITE_FINNHUB_KEY=your_finnhub_key_here
+   VITE_POLYGON_KEY=your_polygon_key_here
    ```
    *Note: `.dev.vars` is git-ignored to keep your secrets safe.*
 
@@ -74,6 +75,7 @@ To deploy to Cloudflare, you must upload your secrets securely using Wrangler:
    ```bash
    npx wrangler secret put VITE_ALPHAVANTAGE_KEY
    npx wrangler secret put VITE_FINNHUB_KEY
+   npx wrangler secret put VITE_POLYGON_KEY
    ```
    *You will be prompted to paste the value for each key.*
 
